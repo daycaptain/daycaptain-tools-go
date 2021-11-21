@@ -26,15 +26,15 @@ const (
 )
 
 var (
-	token   string
-	version bool
+	token       string
+	showVersion bool
 
 	tdaConfig TdaConfig
 )
 
 var (
-	// Version is the version of the application
-	Version = "dev"
+	// version is the version of the application
+	version = "dev"
 )
 
 type Task struct {
@@ -107,7 +107,7 @@ func (c *TdaConfig) GetCommand() (Request, error) {
 func init() {
 	// initialize the flags
 	flag.StringVar(&token, "token", "", "API key, default $DC_API_TOKEN or $DC_API_TOKEN_COMMAND")
-	flag.BoolVar(&version, "version", false, "Prints current version and exit")
+	flag.BoolVar(&showVersion, "version", false, "Prints current version and exit")
 
 	flag.BoolVar(&tdaConfig.today, "t", false, "Add the task to today's tasks")
 	flag.BoolVar(&tdaConfig.today, "today", false, "Add the task to today's tasks")
@@ -131,7 +131,7 @@ func main() {
 	flag.Usage = help
 	flag.Parse()
 
-	if version {
+	if showVersion {
 		printVersion()
 		return
 	}
@@ -191,7 +191,7 @@ func main() {
 }
 
 func printVersion() {
-	fmt.Println(Version)
+	fmt.Println(version)
 }
 
 func help() {
