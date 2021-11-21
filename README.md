@@ -9,9 +9,11 @@ It's in an early stage of development, so can have some bugs, and definitely som
 
 ### Usage
 
-```sh
-$ go build ./...
-```
+1. Build from source:
+    ```sh
+    $ go build ./...
+    ```
+2. Or download [the latest build](https://github.com/szaffarano/daycaptain-tools-go/releases)
 
 ```sh
 $ ./tda -h
@@ -61,4 +63,4 @@ export DC_API_TOKEN_COMMAND="pass some/key"
 
 - [ ] Organize the code (i.e. move the functions to a separate file).
 - [ ] Add code coverage.
-- [ ] Add git workflow to publish relaases.
+- [x] Add git workflow to publish relaases.
