@@ -64,7 +64,7 @@ func post(path string) *request {
 
 func (c *tdaOptions) getCommand() (*request, error) {
 	options := make([]*request, 0)
-	fallback := post(fmt.Sprintf("%s/backlog-items", DayCaptainURL))
+	fallback := post("backlog-items")
 
 	if c.today {
 		today := time.Now().Format(ISO8601)
