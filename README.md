@@ -1,3 +1,10 @@
+[![Build Status](https://github.com/daycaptain/daycaptain-tools-go/workflows/Go%20CI/badge.svg)](https://github.com/daycaptain/daycaptain-tools-go/actions?workflow=Go%20CI)
+[![Go Report Card](https://goreportcard.com/badge/github.com/daycaptain/daycaptain-tools-go)](https://goreportcard.com/report/github.com/daycaptain/daycaptain-tools-go)
+[![codecov](https://codecov.io/gh/szaffarano/gotas/branch/master/graph/badge.svg?token=8UPQNA4E34)](https://codecov.io/gh/szaffarano/gotas) ![GitHub](https://img.shields.io/github/license/szaffarano/gotas)
+
+
+
+
 ## TDA
 
 Helper command inspired in [daycaptain tools](https://github.com/daycaptain/tools/) implemented in golang using just 

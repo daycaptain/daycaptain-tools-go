@@ -1,0 +1,58 @@
+name: "Go CI"
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+    branches:
+      - "**"
+
+jobs:
+  build:
+    name: CI build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17.x
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build project
+        run: go build .
+      - name: Test with coverage
+        run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+      # - name: Upload coverage to Codecov
+        # uses: codecov/codecov-action@v1
+        # with:
+          # token: ${{ secrets.CODECOV_TOKEN }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run linters
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: latest
+
+  multiplat-tests:
+    name: Test in other platforms
+    strategy:
+      matrix:
+        go-version: [1.17.x]
+        platform: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Install Go
+        if: success()
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: go test -v ./...
