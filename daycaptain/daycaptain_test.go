@@ -25,7 +25,9 @@ func TestNewTask(t *testing.T) {
 		if strings.Contains(string(body), "500") {
 			w.WriteHeader(500)
 		}
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			t.Error(err)
+		}
 		reqCh <- request{body: string(body), err: err, url: r.URL.String()}
 	}))
 	defer mockServer.Close()

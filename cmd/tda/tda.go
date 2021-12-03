@@ -2,6 +2,7 @@ package tda
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -78,10 +79,14 @@ func initFlags(args []string) (*flag.FlagSet, error) {
 
 	var output bytes.Buffer
 	tda.SetOutput(&output)
-	tda.Parse(args)
+	if err := tda.Parse(args); err != nil {
+		if !errors.Is(err, flag.ErrHelp) {
+			return nil, err
+		}
+	}
 
 	if len(output.String()) > 0 {
-		return nil, &ParsingError{Message: output.String()}
+		return tda, &ParsingError{Message: output.String()}
 	}
 
 	return tda, nil
@@ -90,9 +95,13 @@ func initFlags(args []string) (*flag.FlagSet, error) {
 // Run executes the tda command
 func Run(version string, args []string) error {
 	tda, err := initFlags(args)
+	var output bytes.Buffer
+
 	if err != nil {
 		return err
 	}
+
+	tda.SetOutput(&output)
 
 	if showVersion {
 		printVersion(version)
@@ -102,18 +111,18 @@ func Run(version string, args []string) error {
 	token = fromEnv(TokenEnvVar, TokenCmdEnvVar, token)
 	if token == "" {
 		usage(tda, "Token is mandatory")
-		os.Exit(1)
+		return &ParsingError{Message: output.String()}
 	}
 
 	if len(tda.Args()) != 1 {
 		usage(tda, fmt.Sprintf("expected task name, got: %q", tda.Args()))
-		os.Exit(1)
+		return &ParsingError{Message: output.String()}
 	}
 
 	when, err := options.when()
 	if err != nil {
 		usage(tda, err.Error())
-		os.Exit(1)
+		return &ParsingError{Message: output.String()}
 	}
 
 	task := daycaptain.Task{String: tda.Args()[0]}
@@ -121,7 +130,7 @@ func Run(version string, args []string) error {
 	client := daycaptain.NewClient(DayCaptainURL, token)
 
 	if err := client.NewTask(task, when); err != nil {
-		panic(err)
+		return err
 	}
 
 	fmt.Println("OK")
