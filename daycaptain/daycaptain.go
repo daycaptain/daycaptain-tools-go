@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -33,7 +34,7 @@ type DayCaptain struct {
 
 func init() {
 	var err error
-	isoWeekRegex, err = regexp.Compile(`^\d{4}-W\d{2}$`)
+	isoWeekRegex, err = regexp.Compile(`^(\d{4})-W(\d{1,2})$`)
 	if err != nil {
 		panic(err)
 	}
@@ -107,8 +108,27 @@ func ParseDate(d string) (string, error) {
 
 // ParseWeek parses a week number in the ISO-8601 format, i.e. 2021-W33
 func ParseWeek(w string) (string, error) {
-	if !isoWeekRegex.Match([]byte(w)) {
+	parsed := isoWeekRegex.FindStringSubmatch(w)
+	// if !isoWeekRegex.Match([]byte(w)) {
+	if len(parsed) != 3 {
 		return "", fmt.Errorf("invalid ISO week format: %s", w)
+	}
+
+	year, err := strconv.Atoi(parsed[1])
+	if err != nil {
+		return "", fmt.Errorf("unexpected error: %v", err)
+	}
+	week, err := strconv.Atoi(parsed[2])
+	if err != nil {
+		return "", fmt.Errorf("unexpected error: %v", err)
+	}
+
+	if year < 2020 {
+		return "", fmt.Errorf("year must be >= 2020")
+	}
+
+	if week < 1 || week > 53 {
+		return "", fmt.Errorf("week must be between 1 and 53")
 	}
 
 	return w, nil
