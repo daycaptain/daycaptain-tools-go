@@ -14,6 +14,9 @@ import (
 )
 
 const (
+	// DayCaptainURLEnvVar is the environment variable name for the DayCaptain URL
+	DayCaptainURLEnvVar = "DC_API_URL"
+
 	// TokenEnvVar is the environment variable name for the token
 	TokenEnvVar = "DC_API_TOKEN"
 
@@ -92,49 +95,52 @@ func initFlags(args []string) (*flag.FlagSet, error) {
 	return tda, nil
 }
 
-// Run executes the tda command
-func Run(version string, args []string) error {
+// Run executes the tda command, returning an error if any occurs or a string
+// with the output of the command.
+func Run(version string, args []string) (string, error) {
 	tda, err := initFlags(args)
 	var output bytes.Buffer
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	tda.SetOutput(&output)
 
 	if showVersion {
-		printVersion(version)
-		return nil
+		return version, nil
 	}
 
 	token = fromEnv(TokenEnvVar, TokenCmdEnvVar, token)
 	if token == "" {
 		usage(tda, "Token is mandatory")
-		return &ParsingError{Message: output.String()}
+		return "", &ParsingError{Message: output.String()}
 	}
 
 	if len(tda.Args()) != 1 {
 		usage(tda, fmt.Sprintf("expected task name, got: %q", tda.Args()))
-		return &ParsingError{Message: output.String()}
+		return "", &ParsingError{Message: output.String()}
 	}
 
 	when, err := options.when()
 	if err != nil {
 		usage(tda, err.Error())
-		return &ParsingError{Message: output.String()}
+		return "", &ParsingError{Message: output.String()}
 	}
 
 	task := daycaptain.Task{String: tda.Args()[0]}
 
-	client := daycaptain.NewClient(DayCaptainURL, token)
+	url := DayCaptainURL
+	if value, ok := os.LookupEnv(DayCaptainURLEnvVar); ok {
+		url = value
+	}
+	client := daycaptain.NewClient(url, token)
 
 	if err := client.NewTask(task, when); err != nil {
-		return err
+		return "", err
 	}
 
-	fmt.Println("OK")
-	return nil
+	return "OK", nil
 }
 
 func (c *tdaOptions) when() (string, error) {
@@ -160,10 +166,6 @@ func (c *tdaOptions) when() (string, error) {
 	}
 
 	return when, nil
-}
-
-func printVersion(version string) {
-	fmt.Println(version)
 }
 
 func fromEnv(name, nameCmd, value string) string {

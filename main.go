@@ -13,10 +13,12 @@ var (
 )
 
 func main() {
-	err := tda.Run(version, os.Args[1:])
+	result, err := tda.Run(version, os.Args[1:])
 	if pe, ok := err.(*tda.ParsingError); ok {
 		fmt.Fprintln(os.Stderr, pe.Error())
+		os.Exit(2)
 	} else if err != nil {
 		panic(err)
 	}
+	fmt.Println(result)
 }
