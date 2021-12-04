@@ -39,8 +39,16 @@ func TestNewTask(t *testing.T) {
 		errContains    string
 	}{
 		{
-			"backlog task",
+			"backlog task with default flag",
 			[]string{"hello world"},
+			"OK",
+			"/backlog-items",
+			"Bearer token",
+			"",
+		},
+		{
+			"backlog task",
+			[]string{"-i", "hello world"},
 			"OK",
 			"/backlog-items",
 			"Bearer token",
