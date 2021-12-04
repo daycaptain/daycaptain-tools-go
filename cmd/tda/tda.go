@@ -88,6 +88,16 @@ func initFlags(args []string) (*flag.FlagSet, error) {
 		}
 	}
 
+	flags := make([]string, 0)
+	tda.Visit(func(f *flag.Flag) {
+		if f.Name != "token" && f.Name != "version" {
+			flags = append(flags, f.Name)
+		}
+	})
+	if len(flags) > 1 {
+		return nil, &ParsingError{fmt.Sprintf("Only one of the following flags can be specified: %s", strings.Join(flags, ", "))}
+	}
+
 	if len(output.String()) > 0 {
 		return tda, &ParsingError{Message: output.String()}
 	}
