@@ -1,22 +1,21 @@
-package main
+package tda
 
 import (
 	"bytes"
-	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 	"time"
+
+	"github.com/szaffarano/daycaptain-tools-go/daycaptain"
 )
 
 const (
-	// DayCaptainURL is the base URL for the DayCaptain API
-	DayCaptainURL = "https://daycaptain.com"
+	// DayCaptainURLEnvVar is the environment variable name for the DayCaptain URL
+	DayCaptainURLEnvVar = "DC_API_URL"
 
 	// TokenEnvVar is the environment variable name for the token
 	TokenEnvVar = "DC_API_TOKEN"
@@ -24,7 +23,8 @@ const (
 	// TokenCmdEnvVar environment variable that holds a command to run to get the token
 	TokenCmdEnvVar = "DC_API_TOKEN_COMMAND"
 
-	ISO8601 = "2006-01-02"
+	// DayCaptainURL is the base URL for the DayCaptain API
+	DayCaptainURL = "https://daycaptain.com"
 )
 
 var (
@@ -33,16 +33,6 @@ var (
 
 	options tdaOptions
 )
-
-var (
-	// version is the version of the application
-	version      = "dev"
-	isoWeekRegex *regexp.Regexp
-)
-
-type Task struct {
-	String string `json:"string"`
-}
 
 type tdaOptions struct {
 	today    bool
@@ -53,160 +43,139 @@ type tdaOptions struct {
 	inbox    bool
 }
 
-type request struct {
-	url    string
-	method string
+// ParsingError is returned by Run when some arguments-related error occurs
+type ParsingError struct {
+	Message string
 }
 
-func post(path string) *request {
-	return &request{fmt.Sprintf("%s/%s", DayCaptainURL, path), "POST"}
+func (p *ParsingError) Error() string {
+	return p.Message
 }
 
-func (c *tdaOptions) getCommand() (*request, error) {
-	options := make([]*request, 0)
-	fallback := post("backlog-items")
-
-	if c.today {
-		today := time.Now().Format(ISO8601)
-		options = append(options, post(fmt.Sprintf("%s/tasks", today)))
-	}
-
-	if c.tomorrow {
-		tomorrow := time.Now().AddDate(0, 0, 1).Format(ISO8601)
-		options = append(options, post(fmt.Sprintf("%s/tasks", tomorrow)))
-	}
-
-	if c.date != "" {
-		current, err := time.Parse("2006-01-02", c.date)
-		if err != nil {
-			return nil, err
-		}
-		options = append(options, post(fmt.Sprintf("%s/tasks", current.Format(ISO8601))))
-	}
-
-	if c.thisWeek {
-		year, week := time.Now().ISOWeek()
-		options = append(options, post(fmt.Sprintf("%d-W%d/tasks", year, week)))
-	}
-
-	if c.week != "" {
-		if !isoWeekRegex.Match([]byte(c.week)) {
-			return nil, fmt.Errorf("invalid ISO week format: %s", c.week)
-		}
-
-		options = append(options, post(fmt.Sprintf("%s/%s/tasks", DayCaptainURL, c.week)))
-	}
-
-	switch len(options) {
-	case 0:
-		return fallback, nil
-	case 1:
-		return options[0], nil
-	default:
-		return nil, fmt.Errorf("More than one option specified: %v", options)
-	}
-}
-
-func init() {
-	var err error
+func initFlags(args []string) (*flag.FlagSet, error) {
+	tda := flag.NewFlagSet("tda", flag.ContinueOnError)
 
 	// initialize the flags
-	flag.StringVar(&token, "token", "", "API key, default $DC_API_TOKEN or $DC_API_TOKEN_COMMAND")
-	flag.BoolVar(&showVersion, "version", false, "Prints current version and exit")
+	tda.StringVar(&token, "token", "", "API key, default $DC_API_TOKEN or $DC_API_TOKEN_COMMAND")
+	tda.BoolVar(&showVersion, "version", false, "Prints current version and exit")
 
-	flag.BoolVar(&options.today, "t", false, "Add the task to today's tasks")
-	flag.BoolVar(&options.today, "today", false, "Add the task to today's tasks")
+	tda.BoolVar(&options.today, "t", false, "Add the task to today's tasks")
+	tda.BoolVar(&options.today, "today", false, "Add the task to today's tasks")
 
-	flag.BoolVar(&options.tomorrow, "m", false, "Add the task to tomorrow's tasks")
-	flag.BoolVar(&options.tomorrow, "tomorrow", false, "Add the task to tomorrow's tasks")
+	tda.BoolVar(&options.tomorrow, "m", false, "Add the task to tomorrow's tasks")
+	tda.BoolVar(&options.tomorrow, "tomorrow", false, "Add the task to tomorrow's tasks")
 
-	flag.StringVar(&options.date, "d", "", "Add the task to the DATE (formatted by ISO-8601, e.g. 2021-01-31)")
-	flag.StringVar(&options.date, "date", "", "Add the task to the DATE (formatted by ISO-8601, e.g. 2021-01-31)")
+	tda.StringVar(&options.date, "d", "", "Add the task to the DATE (formatted by ISO-8601, e.g. 2021-01-31)")
+	tda.StringVar(&options.date, "date", "", "Add the task to the DATE (formatted by ISO-8601, e.g. 2021-01-31)")
 
-	flag.BoolVar(&options.thisWeek, "W", false, "the task to this week")
+	tda.BoolVar(&options.thisWeek, "W", false, "the task to this week")
 
-	flag.StringVar(&options.week, "w", "", "Add the task to the WEEK (formatted by ISO-8601, e.g. 2021-W07)")
-	flag.StringVar(&options.week, "week", "", "Add the task to the WEEK (formatted by ISO-8601, e.g. 2021-W07)")
+	tda.StringVar(&options.week, "w", "", "Add the task to the WEEK (formatted by ISO-8601, e.g. 2021-W07)")
+	tda.StringVar(&options.week, "week", "", "Add the task to the WEEK (formatted by ISO-8601, e.g. 2021-W07)")
 
-	flag.BoolVar(&options.inbox, "i", true, "(Default)  Add the task to the backlog inbox")
-	flag.BoolVar(&options.inbox, "inbox", true, "(Default)  Add the task to the backlog inbox")
+	tda.BoolVar(&options.inbox, "i", true, "(Default)  Add the task to the backlog inbox")
+	tda.BoolVar(&options.inbox, "inbox", true, "(Default)  Add the task to the backlog inbox")
 
-	isoWeekRegex, err = regexp.Compile(`^\d{4}-W\d{2}$`)
-	if err != nil {
-		panic(err)
+	tda.Usage = func() {
+		usage(tda, "")
 	}
+
+	var output bytes.Buffer
+	tda.SetOutput(&output)
+	if err := tda.Parse(args); err != nil {
+		if !errors.Is(err, flag.ErrHelp) {
+			return nil, err
+		}
+	}
+
+	flags := make([]string, 0)
+	tda.Visit(func(f *flag.Flag) {
+		if f.Name != "token" && f.Name != "version" {
+			flags = append(flags, f.Name)
+		}
+	})
+	if len(flags) > 1 {
+		return nil, &ParsingError{fmt.Sprintf("Only one of the following flags can be specified: %s", strings.Join(flags, ", "))}
+	}
+
+	if len(output.String()) > 0 {
+		return tda, &ParsingError{Message: output.String()}
+	}
+
+	return tda, nil
 }
 
-func main() {
-	flag.Usage = help
-	flag.Parse()
+// Run executes the tda command, returning an error if any occurs or a string
+// with the output of the command.
+func Run(version string, args []string) (string, error) {
+	tda, err := initFlags(args)
+	var output bytes.Buffer
+
+	if err != nil {
+		return "", err
+	}
+
+	tda.SetOutput(&output)
 
 	if showVersion {
-		printVersion()
-		return
+		return version, nil
 	}
 
 	token = fromEnv(TokenEnvVar, TokenCmdEnvVar, token)
 	if token == "" {
-		usage("Token is mandatory")
-		return
+		usage(tda, "Token is mandatory")
+		return "", &ParsingError{Message: output.String()}
 	}
 
-	if len(flag.Args()) != 1 {
-		usage(fmt.Sprintf("expected task name, got: %q", flag.Args()))
-		return
+	if len(tda.Args()) != 1 {
+		usage(tda, fmt.Sprintf("expected task name, got: %q", tda.Args()))
+		return "", &ParsingError{Message: output.String()}
 	}
 
-	cmd, err := options.getCommand()
+	when, err := options.when()
 	if err != nil {
-		usage(err.Error())
-		return
+		usage(tda, err.Error())
+		return "", &ParsingError{Message: output.String()}
 	}
 
-	task := Task{flag.Args()[0]}
-	body, err := json.Marshal(task)
-	if err != nil {
-		usage(err.Error())
-		return
+	task := daycaptain.Task{String: tda.Args()[0]}
+
+	url := DayCaptainURL
+	if value, ok := os.LookupEnv(DayCaptainURLEnvVar); ok {
+		url = value
+	}
+	client := daycaptain.NewClient(url, token)
+
+	if err := client.NewTask(task, when); err != nil {
+		return "", err
 	}
 
-	req, err := http.NewRequest(cmd.method, cmd.url, bytes.NewReader(body))
-	if err != nil {
-		usage(err.Error())
-		return
-	}
+	return "OK", nil
+}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
-	req.Header.Add("Content-Type", "application/json")
+func (c *tdaOptions) when() (string, error) {
+	var when string
+	var err error
 
-	client := http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		usage(err.Error())
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		body, err := ioutil.ReadAll(resp.Body)
+	if c.today {
+		when = daycaptain.FormatDate(time.Now())
+	} else if c.tomorrow {
+		when = daycaptain.FormatDate(time.Now().AddDate(0, 0, 1))
+	} else if c.date != "" {
+		when, err = daycaptain.ParseDate(c.date)
 		if err != nil {
-			usage(err.Error())
-			return
+			return "", err
 		}
-
-		usage(fmt.Sprintf("%s: %s", resp.Status, string(body)))
-		return
+	} else if c.thisWeek {
+		when = daycaptain.FormatWeek(time.Now())
+	} else if c.week != "" {
+		when, err = daycaptain.ParseWeek(c.week)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	fmt.Println("OK")
-}
-
-func printVersion() {
-	fmt.Println(version)
-}
-
-func help() {
-	usage("")
+	return when, nil
 }
 
 func fromEnv(name, nameCmd, value string) string {
@@ -224,10 +193,10 @@ func fromEnv(name, nameCmd, value string) string {
 	return value
 }
 
-func usage(msg string) {
+func usage(tda *flag.FlagSet, msg string) {
 	if msg != "" {
-		fmt.Fprint(os.Stderr, msg)
-		fmt.Fprint(os.Stderr, "\n\n")
+		fmt.Fprint(tda.Output(), msg)
+		fmt.Fprint(tda.Output(), "\n\n")
 	}
 	header := `Usage: tda [options] <task name>
 
@@ -240,7 +209,6 @@ export DC_API_TOKEN_COMMAND="pass some/key"
 Options:
 `
 
-	fmt.Fprint(os.Stderr, header)
-	flag.PrintDefaults()
-	os.Exit(2)
+	fmt.Fprint(tda.Output(), header)
+	tda.PrintDefaults()
 }

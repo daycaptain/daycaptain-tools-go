@@ -1,3 +1,11 @@
+[![Build Status](https://github.com/daycaptain/daycaptain-tools-go/workflows/Go%20CI/badge.svg)](https://github.com/daycaptain/daycaptain-tools-go/actions?workflow=Go%20CI)
+[![Go Report Card](https://goreportcard.com/badge/github.com/daycaptain/daycaptain-tools-go)](https://goreportcard.com/report/github.com/daycaptain/daycaptain-tools-go)
+[![codecov](https://codecov.io/gh/daycaptain/daycaptain-tools-go/branch/master/graph/badge.svg?token=8UPQNA4E34)](https://codecov.io/gh/daycaptain/daycaptain-tools-go) 
+![GitHub](https://img.shields.io/github/license/daycaptain/daycaptain-tools-go)
+
+
+
+
 ## TDA
 
 Helper command inspired in [daycaptain tools](https://github.com/daycaptain/tools/) implemented in golang using just 
@@ -13,7 +21,7 @@ It's in an early stage of development, so can have some bugs, and definitely som
     ```sh
     $ go build ./...
     ```
-2. Or download [the latest build](https://github.com/szaffarano/daycaptain-tools-go/releases)
+2. Or download [the latest build](https://github.com//daycaptain-tools-go/releases)
 
 ```sh
 $ ./tda -h
@@ -61,6 +69,6 @@ export DC_API_TOKEN_COMMAND="pass some/key"
 
 ### TODO
 
-- [ ] Organize the code (i.e. move the functions to a separate file).
-- [ ] Add code coverage.
+- [x] Organize the code (i.e. move the functions to a separate file).
+- [x] Add code coverage.
 - [x] Add git workflow to publish relaases.

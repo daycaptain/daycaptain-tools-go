@@ -18,3 +18,4 @@
 tda
 !cmd/**/*
 dist
+coverage-all.html
